@@ -5,10 +5,10 @@ const multer = require('multer');
 const fs = require('fs');
 const cors = require('cors');
 const path = require('path');
-
+require('dotenv').config(); 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const API_URL = process.env.API_URL;
+const PORT = process.env.PORT || 3306;
+
 
 
 // const PORT = process.env.PORT || 3000;
@@ -35,17 +35,20 @@ const upload = multer({ storage });
 
 
 // MySQL connection
-const db = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: 'suhud1313',
-  database: 'mysql_database',
+const pool = mysql.createPool({
+    host: process.env.DB_HOST, 
+    user: process.env.DB_USERNAME, 
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DBNAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
 
-db.connect((err) => {
-  if (err) return console.error('❌ Database connection error:', err);
-  console.log('✅ Connected to MySQL');
-});
+pool.getConnection((err, conn) => {
+    if(err) console.log(err)
+    console.log("Connected successfully")
+})
 
 
 
@@ -180,5 +183,5 @@ app.delete('/images/:id', (req, res) => {
 
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at ${API_URL}`);
-});
+    console.log("Server is running....")
+})

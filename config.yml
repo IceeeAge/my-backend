@@ -1,0 +1,7 @@
+tunnel: my-backend-tunnel
+credentials-file: C:\Users\Suhud\.cloudflared\my-backend-tunnel.json
+
+ingress:
+  - hostname: my-backend.com
+    service: http://localhost:3000
+  - service: http_status:404
