@@ -8,10 +8,15 @@ require("dotenv").config();
 const app = express();
 
 const PORT = process.env.PORT || 3000;
-
+const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
 
 // ✅ MySQL pool config
-const db = require("../backend/config/db"); 
+
+require('dotenv').config();
+
+const db = require("../backend/config/db"); // ✅ FIXED PATH
+
+
 
 // ✅ Serve uploaded images with proper CORS
 app.use(
