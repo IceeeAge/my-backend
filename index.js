@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3000;
 
 
 // ✅ MySQL pool config
-const db = require("../backend/config/db");
+const db = require("../backend/config/db"); 
 
 // ✅ Serve uploaded images with proper CORS
 app.use(
