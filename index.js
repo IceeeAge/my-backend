@@ -7,8 +7,8 @@ const path = require("path");
 require("dotenv").config();
 const app = express();
 
-const PORT = process.env.PORT || 3000;
-const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
+const PORT = process.env.MYSQLPORT || 3000;
+
 
 // ✅ MySQL pool config
 
