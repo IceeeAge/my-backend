@@ -14,7 +14,7 @@ const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
 
 require('dotenv').config();
 
-const db = require("../backend/config/db"); // ✅ FIXED PATH
+const db = require("./config/db"); // ✅ FIXED PATH
 
 
 
