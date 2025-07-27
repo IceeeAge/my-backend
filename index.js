@@ -5,34 +5,23 @@ const fs = require("fs");
 const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
-
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 const API_URL = process.env.API_URL || `http://localhost:${PORT}`;
 
-const pool = mysql.createPool({
-  host: 'bx6hfmfa3xzzoaanhrg6-mysql.services.clever-cloud.com',
-  user: 'u4wrzcqi32x7teyj',
-  password: 'Glhf5OcDLSKP1Mn5oNmG',
-  database: 'bx6hfmfa3xzzoaanhrg6',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-});
+// ✅ MySQL pool config
+const db = require("../backend/config/db");
 
-pool.getConnection((err, connection) => {
-  if (err) {
-    console.error('❌ MySQL connection error:', err);
-  } else {
-    console.log('✅ Connected to MySQL database');
-    connection.release();
-  }
-});
-
-
-
-
-
+// ✅ Serve uploaded images with proper CORS
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "uploads"), {
+    setHeaders: (res) => {
+      res.set("Access-Control-Allow-Origin", "*");
+    },
+  })
+);
 
 // ✅ Middleware
 app.use(cors());
@@ -54,7 +43,6 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // ✅ Routes
-
 app.get("/", (_, res) => res.send("✅ API is working"));
 
 // HTML form upload
@@ -68,24 +56,31 @@ app.get("/upload", (_, res) => {
   `);
 });
 
-// POST /upload – handle file upload
-app.post("/upload", upload.single("file"), (req, res) => {
+app.post("/users_data", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
   const { filename, mimetype, size } = req.file;
+  const { user, email } = req.body; // <-- get user and email from body
   const filePath = `/uploads/${filename}`;
 
+  if (!user || !email) {
+    return res.status(400).json({ error: "User and email are required" });
+  }
+
   db.query(
-    "INSERT INTO uploads (filename, path, mimetype, size) VALUES (?, ?, ?, ?)",
-    [filename, filePath, mimetype, size],
+    "INSERT INTO users_data (filename, path, mimetype, size, user, email) VALUES (?, ?, ?, ?, ?, ?)",
+    [filename, filePath, mimetype, size, user, email],
     (err, result) => {
-      if (err) return res.status(500).json({ error: "Upload DB insert failed" });
+      if (err)
+        return res.status(500).json({ error: "Upload DB insert failed" });
 
       res.status(200).json({
         message: "✅ File uploaded and saved",
         fileId: result.insertId,
         filename,
         path: filePath,
+        user,
+        email,
       });
     }
   );
@@ -100,7 +95,8 @@ app.get("/users", (_, res) => {
 });
 
 // POST /users – add new user
-app.post("/users", (req, res) => {
+
+app.post("/users/post", (req, res) => {
   const { name, email } = req.body;
   if (!name || !email) return res.status(400).json({ error: "Missing fields" });
 
@@ -114,45 +110,90 @@ app.post("/users", (req, res) => {
   );
 });
 
-// GET /api/images – list images
-app.get("/api/images", (_, res) => {
-  db.query("SELECT id, filename, path FROM uploads", (err, results) => {
-    if (err) return res.status(500).json({ error: "Failed to fetch images" });
+// Show uploaded images in HTML
+app.get("/images", (_, res) => {
+  db.query("SELECT filename, user, path FROM users_data", (err, results) => {
+    if (err) return res.status(500).send("Failed to fetch images");
 
-    const images = results.map((img) => ({
-      id: img.id,
-      filename: img.filename,
-      url: `${API_URL}${img.path}`,
-    }));
+    const users = [...new Set(results.map((img) => img.user))];
 
-    res.json(images);
+    const imageTags = results
+      .map(
+        (img) => `
+        <div style="margin:10px;">
+          <img src="${API_URL}${img.path}" width="200">
+          <p>User: ${img.user}</p>
+        </div>
+      `
+      )
+      .join("");
+
+    res.send(`
+      <h2>Uploaded Images</h2>
+      <p>${users.length} unique user(s) uploaded images</p>
+      <div style="display:flex;flex-wrap:wrap;">
+        ${imageTags || "<p>No images uploaded yet.</p>"}
+      </div>
+    `);
   });
+});
+
+// GET /api/images – list images
+app.get("/gets/images", (_, res) => {
+  db.query(
+    "SELECT id, filename, user, email, path FROM users_data",
+    (err, results) => {
+      if (err) return res.status(500).json({ error: "Failed to fetch images" });
+
+      const images = results.map((img) => ({
+        id: img.id,
+        filename: img.filename,
+        user: img.user,
+        email: img.email,
+        url: `${API_URL}${img.path}`,
+      }));
+
+      res.json(images);
+    }
+  );
 });
 
 // DELETE /images/:id – delete image
 app.delete("/images/:id", (req, res) => {
   const imageId = Number(req.params.id);
-  if (isNaN(imageId)) return res.status(400).json({ error: "Invalid image ID" });
+  if (isNaN(imageId))
+    return res.status(400).json({ error: "Invalid image ID" });
 
-  db.query("SELECT path FROM uploads WHERE id = ?", [imageId], (err, results) => {
-    if (err) return res.status(500).json({ error: "Database select failed" });
-    if (results.length === 0) return res.status(404).json({ error: "Image not found" });
+  db.query(
+    "SELECT path FROM users_data WHERE id = ?",
+    [imageId],
+    (err, results) => {
+      if (err) return res.status(500).json({ error: "Database select failed" });
+      if (results.length === 0)
+        return res.status(404).json({ error: "Image not found" });
 
-    const filePath = path.join(__dirname, results[0].path);
+      const filePath = path.join(__dirname, results[0].path);
 
-    fs.unlink(filePath, (fsErr) => {
-      if (fsErr) return res.status(500).json({ error: "File deletion failed" });
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr)
+          return res.status(500).json({ error: "File deletion failed" });
 
-      db.query("DELETE FROM uploads WHERE id = ?", [imageId], (deleteErr) => {
-        if (deleteErr) return res.status(500).json({ error: "Database delete failed" });
+        db.query(
+          "DELETE FROM users_data WHERE id = ?",
+          [imageId],
+          (deleteErr) => {
+            if (deleteErr)
+              return res.status(500).json({ error: "Database delete failed" });
 
-        res.json({ success: true, message: "Image deleted successfully" });
+            res.json({ success: true, message: "Image deleted successfully" });
+          }
+        );
       });
-    });
-  });
+    }
+  );
 });
 
 // ✅ Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at ${API_URL}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

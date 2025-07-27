@@ -1,16 +1,12 @@
 const mysql = require('mysql2');
 
-// ❌ REMOVE this since you're not using .env
-// require('dotenv').config();
 
 const pool = mysql.createPool({
-  host: 'bx6hfmfa3xzzoaanhrg6-mysql.services.clever-cloud.com',
-  user: 'u4wrzcqi32x7teyj',
-  password: 'Glhf5OcDLSKP1Mn5oNmG',
-  database: 'bx6hfmfa3xzzoaanhrg6',
+  host: process.env.MYSQL_HOST,
+  user: process.env.MYSQL_PASSWORD,
+  password: process.env.MYSQL_PORT,
+  database: process.env.MYSQL_DATABASE,
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
 });
 
 pool.getConnection((err, connection) => {
